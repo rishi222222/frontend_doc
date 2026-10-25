@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api, { API_BASE_URL } from '../api/client';
+import api from '../api/client';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { errorMessage, formatBytes, formatDate } from '../utils/format';
@@ -22,6 +22,10 @@ export default function DocumentDetailsPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+
   async function load() {
     const [d, p, v, a] = await Promise.all([
       api.get(`/documents/${id}`),
@@ -40,6 +44,40 @@ export default function DocumentDetailsPage() {
   useEffect(() => {
     load().catch((err) => setError(errorMessage(err, 'Document unavailable')));
   }, [id]);
+
+  const previewable = Boolean(doc && ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'].includes(doc.mimeType));
+
+  useEffect(() => {
+    if (!doc || !previewable) return;
+    let cancelled = false;
+    let createdUrl = null;
+
+    setPreviewLoading(true);
+    setPreviewError('');
+
+    api
+      .get(`/documents/${id}/preview`, { responseType: 'blob' })
+      .then((res) => {
+        if (cancelled) return;
+        const blob = new Blob([res.data], { type: doc.mimeType });
+        createdUrl = URL.createObjectURL(blob);
+        setPreviewBlobUrl(createdUrl);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setPreviewError(errorMessage(err, 'Unable to load preview'));
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [id, doc?.version, previewable]);
 
   const access = doc?.access || {};
 
@@ -94,8 +132,6 @@ export default function DocumentDetailsPage() {
     return <div className="card p-8 text-rose-700">{error}</div>;
   }
   if (!doc) return <p>Loading…</p>;
-
-  const previewable = ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'].includes(doc.mimeType);
 
   return (
     <div className="space-y-8">
@@ -154,7 +190,39 @@ export default function DocumentDetailsPage() {
           </dl>
 
           {previewable ? (
-            <iframe title="Preview" className="h-96 w-full rounded-xl border border-stone-200" src={`${API_BASE_URL}/documents/${id}/preview`} />
+            <div className="space-y-2">
+              {previewLoading && (
+                <div className="flex h-64 items-center justify-center rounded-xl border border-stone-200 bg-stone-50 text-sm text-stone-500">
+                  Loading preview…
+                </div>
+              )}
+              {previewError && !previewLoading && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  {previewError}
+                </div>
+              )}
+              {previewBlobUrl && !previewLoading && (
+                <>
+                  {doc.mimeType.startsWith('image/') ? (
+                    <div className="flex justify-center rounded-xl border border-stone-200 bg-stone-50 p-2">
+                      <img src={previewBlobUrl} alt={doc.title} className="max-h-96 rounded-lg object-contain" />
+                    </div>
+                  ) : (
+                    <iframe title="Preview" className="h-96 w-full rounded-xl border border-stone-200" src={previewBlobUrl} />
+                  )}
+                  <div className="flex justify-end">
+                    <a
+                      href={previewBlobUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-accent underline hover:opacity-80"
+                    >
+                      Open preview in new tab ↗
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-stone-500">Preview is available for PDF, images, and text files.</p>
           )}

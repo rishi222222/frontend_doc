@@ -5,6 +5,7 @@ const { ACCESS_COOKIE, verifyAccessToken } = require('../services/tokenService')
 function extractToken(req) {
   const header = req.get('authorization') || '';
   if (header.startsWith('Bearer ')) return header.slice(7);
+  if (req.query?.token) return String(req.query.token);
   return req.cookies?.[ACCESS_COOKIE];
 }
 

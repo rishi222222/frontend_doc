@@ -11,6 +11,7 @@ const { parsePagination, paginated } = require('../utils/pagination');
 const { getStorage } = require('../services/storage');
 const { logEvent } = require('../services/auditService');
 const access = require('../services/accessService');
+const { env } = require('../config/env');
 
 function storageKeyFor(originalName) {
   const ext = path.extname(originalName || '').toLowerCase();
@@ -159,6 +160,15 @@ const previewDocument = asyncHandler(async (req, res) => {
   await access.requireView(req.user, doc);
   const storage = getStorage();
   const stream = await storage.getStream(doc.storageKey);
+
+  const trustedOrigins = [
+    "'self'",
+    'https://*.vercel.app',
+    ...env.clientOrigins.filter((o) => typeof o === 'string' && o.startsWith('http')),
+  ].join(' ');
+
+  res.setHeader('Content-Security-Policy', `frame-ancestors ${trustedOrigins}`);
+  res.removeHeader('X-Frame-Options');
   res.setHeader('Content-Type', doc.mimeType);
   res.setHeader('Content-Disposition', `inline; filename="${sanitizeFilename(doc.originalFilename)}"`);
   stream.pipe(res);
