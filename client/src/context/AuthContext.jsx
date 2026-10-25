@@ -11,7 +11,25 @@ export function AuthProvider({ children }) {
     api
       .get('/auth/me')
       .then((res) => setUser(res.data.user))
-      .catch(() => setUser(null))
+      .catch(async () => {
+        const storedRefresh = localStorage.getItem('refreshToken');
+        if (storedRefresh) {
+          try {
+            const r = await api.post('/auth/refresh', { refreshToken: storedRefresh });
+            setSession({
+              accessToken: r.data.accessToken,
+              refreshToken: r.data.refreshToken || storedRefresh,
+              csrfToken: r.data.csrfToken,
+            });
+            const meRes = await api.get('/auth/me');
+            setUser(meRes.data.user);
+            return;
+          } catch {
+            clearSession();
+          }
+        }
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -23,7 +41,11 @@ export function AuthProvider({ children }) {
       async login(email, password) {
         clearSession();
         const res = await api.post('/auth/login', { email, password });
-        setSession({ accessToken: res.data.accessToken, csrfToken: res.data.csrfToken });
+        setSession({
+          accessToken: res.data.accessToken,
+          refreshToken: res.data.refreshToken,
+          csrfToken: res.data.csrfToken,
+        });
         setUser(res.data.user);
         return res.data.user;
       },

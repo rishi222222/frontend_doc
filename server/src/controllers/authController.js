@@ -20,7 +20,7 @@ async function attachSession(res, user, req) {
   const refreshToken = await issueRefreshToken(user, req);
   const csrf = csrfToken();
   setAuthCookies(res, { accessToken, refreshToken, csrf });
-  return { accessToken, csrf };
+  return { accessToken, refreshToken, csrf };
 }
 
 const login = asyncHandler(async (req, res) => {
@@ -36,11 +36,17 @@ const login = asyncHandler(async (req, res) => {
   }
   const tokens = await attachSession(res, user, req);
   await logEvent({ actorId: user._id, action: 'auth.login.success', req });
-  res.json({ user: toSafeUser(user), csrfToken: tokens.csrf, accessToken: tokens.accessToken });
+  res.json({
+    user: toSafeUser(user),
+    csrfToken: tokens.csrf,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+  });
 });
 
 const logout = asyncHandler(async (req, res) => {
-  await revokeRefreshToken(req.cookies?.[REFRESH_COOKIE]);
+  const raw = req.cookies?.[REFRESH_COOKIE] || req.body?.refreshToken || req.get('x-refresh-token');
+  await revokeRefreshToken(raw);
   if (req.user) {
     await logEvent({ actorId: req.user._id, action: 'auth.logout', req });
   }
@@ -49,7 +55,7 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 const refresh = asyncHandler(async (req, res) => {
-  const raw = req.cookies?.[REFRESH_COOKIE];
+  const raw = req.cookies?.[REFRESH_COOKIE] || req.body?.refreshToken || req.get('x-refresh-token');
   if (!raw) throw new AppError(401, 'Refresh token missing', 'UNAUTHENTICATED');
   const userId = await rotateRefreshToken(raw, req);
   if (!userId) {
@@ -62,7 +68,12 @@ const refresh = asyncHandler(async (req, res) => {
     throw new AppError(401, 'Account is deactivated', 'INACTIVE');
   }
   const tokens = await attachSession(res, user, req);
-  res.json({ user: toSafeUser(user), csrfToken: tokens.csrf, accessToken: tokens.accessToken });
+  res.json({
+    user: toSafeUser(user),
+    csrfToken: tokens.csrf,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+  });
 });
 
 const me = asyncHandler(async (req, res) => {

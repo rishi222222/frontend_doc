@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api from '../api/client';
+import api, { API_BASE_URL } from '../api/client';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { errorMessage, formatBytes, formatDate } from '../utils/format';
@@ -154,7 +154,7 @@ export default function DocumentDetailsPage() {
           </dl>
 
           {previewable ? (
-            <iframe title="Preview" className="h-96 w-full rounded-xl border border-stone-200" src={`/api/documents/${id}/preview`} />
+            <iframe title="Preview" className="h-96 w-full rounded-xl border border-stone-200" src={`${API_BASE_URL}/documents/${id}/preview`} />
           ) : (
             <p className="text-sm text-stone-500">Preview is available for PDF, images, and text files.</p>
           )}

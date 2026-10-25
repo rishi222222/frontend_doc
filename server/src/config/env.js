@@ -4,10 +4,16 @@ const dotenv = require('dotenv');
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+const isRender = Boolean(process.env.RENDER);
+const isProd = (process.env.NODE_ENV || 'development') === 'production' || isRender;
+
 function requiredInProd(name, fallback) {
-  const value = process.env[name] || fallback;
-  if (process.env.NODE_ENV === 'production' && !process.env[name]) {
-    throw new Error(`Missing required environment variable: ${name}`);
+  const value = process.env[name];
+  if (!value) {
+    if (isProd) {
+      console.warn(`[WARN] Missing environment variable: ${name}. Using default fallback. Configure ${name} in your hosting dashboard.`);
+    }
+    return fallback;
   }
   return value;
 }
@@ -19,11 +25,17 @@ function parseOrigins(raw) {
     .filter(Boolean);
 }
 
-const isProd = (process.env.NODE_ENV || 'development') === 'production';
-const clientOrigins = parseOrigins(process.env.CLIENT_ORIGIN || 'http://localhost:5173');
+const configuredOrigins = parseOrigins(process.env.CLIENT_ORIGIN || '');
+const clientOrigins = configuredOrigins.length > 0 ? configuredOrigins : ['http://localhost:5173'];
+
+const cookieSameSite = (process.env.COOKIE_SAMESITE || (isProd ? 'none' : 'lax')).toLowerCase();
+const cookieSecure = process.env.COOKIE_SECURE
+  ? String(process.env.COOKIE_SECURE).toLowerCase() === 'true'
+  : (cookieSameSite === 'none' || isProd);
 
 const env = {
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: process.env.NODE_ENV || (isRender ? 'production' : 'development'),
+  isProd,
   port: Number(process.env.PORT || 5001),
   clientOrigin: clientOrigins[0] || 'http://localhost:5173',
   clientOrigins,
@@ -37,10 +49,8 @@ const env = {
     refreshExpires: process.env.JWT_REFRESH_EXPIRES || '7d',
   },
   cookie: {
-    secure: process.env.COOKIE_SECURE
-      ? String(process.env.COOKIE_SECURE).toLowerCase() === 'true'
-      : isProd,
-    sameSite: (process.env.COOKIE_SAMESITE || (isProd ? 'none' : 'lax')).toLowerCase(),
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
   },
   storage: {
     driver: 'mongodb',
