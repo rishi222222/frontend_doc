@@ -8,29 +8,28 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    const refresh = localStorage.getItem('refreshToken');
+
+    // If no tokens exist at all, we are not logged in - don't trigger 401 calls
+    if (!token && !refresh) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     api
       .get('/auth/me')
-      .then((res) => setUser(res.data.user))
-      .catch(async () => {
-        const storedRefresh = localStorage.getItem('refreshToken');
-        if (storedRefresh) {
-          try {
-            const r = await api.post('/auth/refresh', { refreshToken: storedRefresh });
-            setSession({
-              accessToken: r.data.accessToken,
-              refreshToken: r.data.refreshToken || storedRefresh,
-              csrfToken: r.data.csrfToken,
-            });
-            const meRes = await api.get('/auth/me');
-            setUser(meRes.data.user);
-            return;
-          } catch {
-            clearSession();
-          }
-        }
+      .then((res) => {
+        setUser(res.data.user);
+      })
+      .catch(() => {
+        clearSession();
         setUser(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const value = useMemo(

@@ -5,15 +5,12 @@ export function getApiBaseUrl() {
   if (!envUrl) {
     return '/api';
   }
-  // If already ends with /api
   if (envUrl.endsWith('/api')) {
     return envUrl;
   }
-  // If relative path like '/api'
   if (envUrl.startsWith('/')) {
     return envUrl === '/api' ? '/api' : `${envUrl}/api`;
   }
-  // Absolute URL like https://backend.onrender.com -> ensure /api is attached
   return `${envUrl}/api`;
 }
 
@@ -55,14 +52,17 @@ export function clearSession() {
   localStorage.removeItem('csrfToken');
 }
 
-function isLoginRequest(config) {
-  const target = `${config.baseURL || ''}${config.url || ''}`;
-  return /\/auth\/login(?:\?|$)/.test(target);
+function isAuthRoute(url = '') {
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/logout')
+  );
 }
 
 api.interceptors.request.use((config) => {
   if (!config.headers) config.headers = {};
-  if (isLoginRequest(config)) {
+  if (config.url?.includes('/auth/login')) {
     delete config.headers.Authorization;
     delete config.headers['X-CSRF-Token'];
     return config;
@@ -81,11 +81,20 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry && !original.url?.includes('/auth/login')) {
+    if (!original) return Promise.reject(error);
+
+    // Never retry auth endpoints (login, refresh, logout) on 401
+    if (error.response?.status === 401 && !original._retry && !isAuthRoute(original.url)) {
       original._retry = true;
+      const storedRefresh = refreshToken || localStorage.getItem('refreshToken');
+
+      if (!storedRefresh) {
+        clearSession();
+        return Promise.reject(error);
+      }
+
       try {
         if (!refreshing) {
-          const storedRefresh = refreshToken || localStorage.getItem('refreshToken');
           refreshing = api
             .post('/auth/refresh', { refreshToken: storedRefresh })
             .then((r) => {
@@ -104,8 +113,9 @@ api.interceptors.response.use(
         original.headers.Authorization = `Bearer ${accessToken}`;
         original.headers['X-CSRF-Token'] = csrfToken;
         return api(original);
-      } catch {
+      } catch (refreshErr) {
         clearSession();
+        return Promise.reject(refreshErr);
       }
     }
     return Promise.reject(error);
