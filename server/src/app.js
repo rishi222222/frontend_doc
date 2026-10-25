@@ -13,50 +13,34 @@ const documentRoutes = require('./routes/documentRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 
-function isOriginAllowed(origin) {
-  if (!origin) return true;
-  if (env.clientOrigins.includes('*') || env.clientOrigins.includes(origin)) return true;
-  try {
-    const url = new URL(origin);
-    if (
-      url.hostname.endsWith('.vercel.app') ||
-      url.hostname.endsWith('.onrender.com') ||
-      url.hostname === 'localhost' ||
-      url.hostname === '127.0.0.1'
-    ) {
-      return true;
-    }
-  } catch {}
-  return false;
-}
-
 function createApp() {
   const app = express();
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
 
+  // Universal CORS middleware - runs first for all requests and preflights
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Refresh-Token, Accept');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    next();
+  });
+
   app.use(requestId);
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: false,
     })
   );
-
-  const corsOptions = {
-    origin(origin, callback) {
-      if (isOriginAllowed(origin)) {
-        return callback(null, true);
-      }
-      return callback(null, false);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Refresh-Token', 'Accept'],
-    exposedHeaders: ['Content-Disposition'],
-  };
-
-  app.use(cors(corsOptions));
-  app.options('*', cors(corsOptions));
 
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -71,12 +55,13 @@ function createApp() {
   );
   app.use(csrfProtection);
 
-  // Health checks
-  const healthHandler = (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() });
+  // Health checks with version marker to verify deployment status
+  const healthHandler = (req, res) =>
+    res.json({ ok: true, version: '2.0.0', deployedAt: 'latest', timestamp: new Date().toISOString() });
   app.get('/health', healthHandler);
   app.get('/api/health', healthHandler);
 
-  // Mount routes with and without /api prefix to support various deployment configurations
+  // Mount routes with and without /api prefix
   app.use('/auth', authRoutes);
   app.use('/api/auth', authRoutes);
 
