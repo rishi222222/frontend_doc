@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
       loading,
       isAdmin: user?.role === 'admin',
       async login(email, password) {
+        clearSession();
         const res = await api.post('/auth/login', { email, password });
         setSession({ accessToken: res.data.accessToken, csrfToken: res.data.csrfToken });
         setUser(res.data.user);

@@ -12,10 +12,21 @@ function requiredInProd(name, fallback) {
   return value;
 }
 
+function parseOrigins(raw) {
+  return String(raw || '')
+    .split(',')
+    .map((value) => value.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+const isProd = (process.env.NODE_ENV || 'development') === 'production';
+const clientOrigins = parseOrigins(process.env.CLIENT_ORIGIN || 'http://localhost:5173');
+
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 5001),
-  clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  clientOrigin: clientOrigins[0] || 'http://localhost:5173',
+  clientOrigins,
   mongodbUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mohit_doc_viewer',
   jwt: {
     accessSecret: requiredInProd('JWT_ACCESS_SECRET', 'dev-access-secret-change-me-32chars!!'),
@@ -26,8 +37,10 @@ const env = {
     refreshExpires: process.env.JWT_REFRESH_EXPIRES || '7d',
   },
   cookie: {
-    secure: String(process.env.COOKIE_SECURE || '').toLowerCase() === 'true',
-    sameSite: process.env.COOKIE_SAMESITE || 'lax',
+    secure: process.env.COOKIE_SECURE
+      ? String(process.env.COOKIE_SECURE).toLowerCase() === 'true'
+      : isProd,
+    sameSite: (process.env.COOKIE_SAMESITE || (isProd ? 'none' : 'lax')).toLowerCase(),
   },
   storage: {
     driver: 'mongodb',

@@ -27,10 +27,12 @@ function verifyAccessToken(token) {
 }
 
 function cookieOptions(maxAgeMs) {
+  const sameSite = env.cookie.sameSite;
+  const secure = sameSite === 'none' ? true : env.cookie.secure;
   return {
     httpOnly: true,
-    secure: env.cookie.secure,
-    sameSite: env.cookie.sameSite,
+    secure,
+    sameSite,
     path: '/',
     maxAge: maxAgeMs,
   };
@@ -72,12 +74,10 @@ async function revokeAllUserTokens(userId) {
 function setAuthCookies(res, { accessToken, refreshToken, csrf }) {
   res.cookie(ACCESS_COOKIE, accessToken, cookieOptions(15 * 60 * 1000));
   res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
+  const csrfCookie = cookieOptions(7 * 24 * 60 * 60 * 1000);
   res.cookie(CSRF_COOKIE, csrf, {
+    ...csrfCookie,
     httpOnly: false,
-    secure: env.cookie.secure,
-    sameSite: env.cookie.sameSite,
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
 

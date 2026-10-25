@@ -30,7 +30,18 @@ export function clearSession() {
   localStorage.removeItem('csrfToken');
 }
 
+function isLoginRequest(config) {
+  const target = `${config.baseURL || ''}${config.url || ''}`;
+  return /\/auth\/login(?:\?|$)/.test(target);
+}
+
 api.interceptors.request.use((config) => {
+  if (!config.headers) config.headers = {};
+  if (isLoginRequest(config)) {
+    delete config.headers.Authorization;
+    delete config.headers['X-CSRF-Token'];
+    return config;
+  }
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   if (csrfToken) config.headers['X-CSRF-Token'] = csrfToken;
   return config;
