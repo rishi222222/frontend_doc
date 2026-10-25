@@ -7,43 +7,72 @@ const { hashPassword } = require('./utils/crypto');
 
 async function autoSeedIfEmpty() {
   try {
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      console.log('Database has no users. Auto-seeding initial users...');
-      const adminPassHash = await hashPassword(env.seed.adminPassword);
-      const empPassHash = await hashPassword(env.seed.employeePassword);
-      const mohitPassHash = await hashPassword('123456789');
+    const seedAccounts = [
+      {
+        name: 'System Administrator',
+        email: env.seed.adminEmail,
+        password: env.seed.adminPassword,
+        role: 'admin',
+        employeeId: 'ADM-001',
+        department: 'IT',
+      },
+      {
+        name: 'Alex Employee',
+        email: env.seed.employeeEmail,
+        password: env.seed.employeePassword,
+        role: 'employee',
+        employeeId: 'EMP-001',
+        department: 'Operations',
+      },
+      {
+        name: 'Mohit Admin',
+        email: 'mohit@company.com',
+        password: '123456789',
+        role: 'admin',
+        employeeId: 'ADM-002',
+        department: 'IT',
+      },
+      {
+        name: 'Casey Brooks',
+        email: 'casey@company.com',
+        password: 'Employee123!@#',
+        role: 'employee',
+        employeeId: 'EMP-007',
+        department: 'Operations',
+      },
+      {
+        name: 'Jordan Colleague',
+        email: 'jordan@company.com',
+        password: 'Employee123!@#',
+        role: 'employee',
+        employeeId: 'EMP-002',
+        department: 'Finance',
+      },
+      {
+        name: 'Priya Sharma',
+        email: 'priya@company.com',
+        password: 'Employee123!@#',
+        role: 'employee',
+        employeeId: 'EMP-003',
+        department: 'Human Resources',
+      },
+    ];
 
-      await User.create([
-        {
-          name: 'System Administrator',
-          email: env.seed.adminEmail,
-          passwordHash: adminPassHash,
-          role: 'admin',
-          employeeId: 'ADM-001',
-          department: 'IT',
+    for (const acc of seedAccounts) {
+      const exists = await User.findOne({ email: acc.email });
+      if (!exists) {
+        const passwordHash = await hashPassword(acc.password);
+        await User.create({
+          name: acc.name,
+          email: acc.email,
+          passwordHash,
+          role: acc.role,
+          employeeId: acc.employeeId,
+          department: acc.department,
           isActive: true,
-        },
-        {
-          name: 'Alex Employee',
-          email: env.seed.employeeEmail,
-          passwordHash: empPassHash,
-          role: 'employee',
-          employeeId: 'EMP-001',
-          department: 'Operations',
-          isActive: true,
-        },
-        {
-          name: 'Mohit Admin',
-          email: 'mohit@company.com',
-          passwordHash: mohitPassHash,
-          role: 'admin',
-          employeeId: 'ADM-002',
-          department: 'IT',
-          isActive: true,
-        },
-      ]);
-      console.log(`Auto-seeded initial admin (${env.seed.adminEmail}) and employee (${env.seed.employeeEmail}) accounts.`);
+        });
+        console.log(`Auto-seeded seed account: ${acc.email} (${acc.role})`);
+      }
     }
   } catch (err) {
     console.warn('Auto-seed check encountered an issue (ignoring):', err.message);
