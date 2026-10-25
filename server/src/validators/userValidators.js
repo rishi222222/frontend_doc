@@ -4,9 +4,9 @@ const objectId = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id');
 
 const createUserSchema = z.object({
   body: z.object({
-    name: z.string().min(2).max(120),
-    email: z.string().email().transform((v) => v.toLowerCase().trim()),
-    password: z.string().min(10).max(128),
+    name: z.string().min(2, 'Name must contain at least 2 characters').max(120),
+    email: z.string().email('Please enter a valid email address').transform((v) => v.toLowerCase().trim()),
+    password: z.string().min(10, 'Password must contain at least 10 characters').max(128),
     role: z.enum(['admin', 'employee']).default('employee'),
     department: z.string().max(120).optional(),
     employeeId: z.string().max(60).optional(),
@@ -17,7 +17,7 @@ const createUserSchema = z.object({
 
 const updateUserSchema = z.object({
   body: z.object({
-    name: z.string().min(2).max(120).optional(),
+    name: z.string().min(2, 'Name must contain at least 2 characters').max(120).optional(),
     department: z.string().max(120).optional(),
     employeeId: z.string().max(60).optional(),
     role: z.enum(['admin', 'employee']).optional(),

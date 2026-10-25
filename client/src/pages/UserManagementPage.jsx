@@ -25,6 +25,14 @@ export default function UserManagementPage() {
   async function createUser(e) {
     e.preventDefault();
     setError('');
+    if (!form.name.trim() || form.name.trim().length < 2) {
+      setError('Name must contain at least 2 characters.');
+      return;
+    }
+    if (!form.password || form.password.length < 10) {
+      setError('Password must contain at least 10 characters.');
+      return;
+    }
     try {
       await api.post('/users', form);
       setForm(emptyForm);
@@ -44,18 +52,61 @@ export default function UserManagementPage() {
 
       <form onSubmit={createUser} className="card grid gap-3 p-6 md:grid-cols-2">
         <h2 className="font-display text-2xl md:col-span-2">Create account</h2>
-        {['name', 'email', 'password', 'department', 'employeeId'].map((field) => (
-          <label key={field} className="text-sm font-medium capitalize">
-            {field}
-            <input
-              type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'}
-              className="mt-1 w-full rounded-xl border px-3 py-2"
-              value={form[field]}
-              onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-              required={['name', 'email', 'password'].includes(field)}
-            />
-          </label>
-        ))}
+        <label className="text-sm font-medium">
+          Name
+          <input
+            type="text"
+            className="mt-1 w-full rounded-xl border px-3 py-2"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+            minLength={2}
+            placeholder="Full name"
+          />
+        </label>
+        <label className="text-sm font-medium">
+          Email
+          <input
+            type="email"
+            className="mt-1 w-full rounded-xl border px-3 py-2"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+            placeholder="user@company.com"
+          />
+        </label>
+        <label className="text-sm font-medium">
+          Password <span className="text-xs font-normal text-stone-500">(at least 10 characters)</span>
+          <input
+            type="password"
+            className="mt-1 w-full rounded-xl border px-3 py-2"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            required
+            minLength={10}
+            placeholder="Min 10 characters"
+          />
+        </label>
+        <label className="text-sm font-medium">
+          Department
+          <input
+            type="text"
+            className="mt-1 w-full rounded-xl border px-3 py-2"
+            value={form.department}
+            onChange={(e) => setForm({ ...form, department: e.target.value })}
+            placeholder="e.g. HR, Engineering"
+          />
+        </label>
+        <label className="text-sm font-medium">
+          Employee ID
+          <input
+            type="text"
+            className="mt-1 w-full rounded-xl border px-3 py-2"
+            value={form.employeeId}
+            onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
+            placeholder="e.g. EMP-001"
+          />
+        </label>
         <label className="text-sm font-medium">
           Role
           <select className="mt-1 w-full rounded-xl border px-3 py-2" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
